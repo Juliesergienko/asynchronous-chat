@@ -1,0 +1,364 @@
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Chat</title>
+        
+        <link href="/ball/ball/css/bootstrap_main.css" rel="stylesheet" media="screen">
+        <link href="/ball/ball/css/creative.min.css" rel="stylesheet" media="screen">
+        
+      </head>
+      <body>
+        <script src="http://code.jquery.com/jquery-latest.js"></script> 
+        <script src="/ball/ball/js/bootstrap.min.js"></script> 
+        <script>
+        var main_user = 0;
+        var user_to_chat = 0;
+
+        ws = new WebSocket("ws://localhost:8080/ws")
+
+
+        ws.onopen = function() {console.log('Connection open!');}
+
+        ws.onclose = function() {console.log('Connection closed!');} 
+
+        function authorise_user_checked(authorised, user)
+        {
+          console.log("in authorise_user_checked" + authorised);
+          if (authorised)
+            {
+            //alert ("authorised!");
+            var auth_form = document.getElementById("autharisation");
+            //auth_form.style.visibility = "hidden";
+            auth_form.style.display = "None";
+            var main_form = document.getElementById("chat_itself");
+            main_form.style.visibility = "visible";
+            show_users();
+            write_in(user);
+          }
+          else
+          {
+            alert("Sorry. Try again :(");
+          }
+        }
+
+        function register_user_checked(registered, user){
+          console.log("user registered: " + registered);
+          if (registered)
+            {alert ("Welcome!");
+            var auth_form = document.getElementById("autharisation");
+            //auth_form.style.visibility = "hidden";
+            auth_form.style.display = "None";
+            var main_form = document.getElementById("chat_itself");
+            main_form.style.visibility = "visible";
+            write_in(user);
+          }
+          else
+          {
+            alert("Some mistake happened. May be, user with such name already exists. Try again. please.");
+          }
+
+        }
+
+        function write_in(user){
+          main_user = user;
+          var dv = document.getElementById("welcome");
+          var p = document.createElement("p");
+          var text = document.createTextNode("Hello, "+user.name+"!");
+          p.appendChild(text);
+          dv.appendChild(p);
+        }
+
+
+
+        function show_history(message_list, other_id){
+          var dv = document.getElementById("history");
+          dv.innerHTML = "";
+          for (i=0; i<message_list.length;i++){
+            var dv_inner = document.createElement("div");
+            var p = document.createElement("p");
+            var p2 = document.createElement("p");
+            var text = document.createTextNode(message_list[i].message);
+            if(message_list[i].sender_id == other_id){
+              dv_inner.style.textAlign="right";
+              dv_inner.style.backgroundColor = "#F5FCCA";
+            }
+            else{
+              dv_inner.style.textAlign="left";
+              dv_inner.style.backgroundColor = "#AADEEF";
+            }
+            p.appendChild(text);
+            dv_inner.appendChild(p);
+            //p2.appendChild(dv_inner);
+            dv.appendChild(dv_inner);
+            
+          }
+
+        }
+
+        ws.onmessage = function(message_from_server) {
+          console.log("message_from_server" + message_from_server.data);
+          message = JSON.parse(message_from_server.data);
+          console.log("onmessage: " + message.type);
+          if (message.type == "authorisation"){
+            authorise_user_checked(message.authorised, message.user);
+          }
+          if (message.type == "registration"){
+            register_user_checked(message.registered, message.user);
+          }
+          if ((message.type == "get_online_user_list") || (message.type=="get_user_list")){
+            show_user_list(message.user_list);
+          }
+          if(message.type == "message"){
+            //alert(message.message, message.from);
+            show_new_message(message.message, message.from);
+          }
+          if(message.type == "history"){
+            show_history(message.message_list, message.other_id)
+          }
+          if(message.type == "status"){
+            show_users_online();
+          }
+          if (message.type == "Error"){
+            console.log(message.except);
+          }
+
+          
+          
+        }
+
+        function show_new_message(message, from){
+          if(from==user_to_chat.id){
+            var dv = document.getElementById("history");
+            var dv_inner = document.createElement("div");
+            var p = document.createElement("p");
+            dv_inner.style.textAlign="right";
+            dv_inner.style.backgroundColor = "#F5FCCA";
+            var text = document.createTextNode(message);
+            console.log(message);
+            p.appendChild(text);
+            dv_inner.appendChild(p);
+            //p2.appendChild(dv_inner);
+            dv.appendChild(dv_inner);
+
+          }
+          else{
+            var btn = document.getElementById(from);
+            console.log("btn " + btn);
+            btn.innerHTML += " +new";
+            //btn.appendChild(text);
+          }
+        }
+
+        function send_to_server(to, text){
+          var message = JSON.stringify({"type":"message", "message":text, "to":to, "time":Date.now()});
+          ws.send(message);
+        }
+
+        function send_to_particular(){
+          var text = document.getElementById("text_to_particular");
+          var send_to = user_to_chat.id;
+          send_to_server(send_to, text.value);
+          if (send_to != main_user.id){
+            var dv = document.getElementById("history");
+            var dv_inner = document.createElement("div");
+            var p = document.createElement("p");
+            dv_inner.style.textAlign="left";
+            dv_inner.style.backgroundColor = "#AADEEF";
+            var text_message = document.createTextNode(text.value);
+            console.log(text_message);
+            p.appendChild(text_message);
+            dv_inner.appendChild(p);
+            dv.appendChild(dv_inner);
+          }
+          
+          text.value = ""
+
+
+        }
+
+        function send_message(){
+          var send_to = document.getElementById("to");
+          var text = document.getElementById("text");
+          send_to_server(send_to.value, text.value);
+
+          
+        }
+
+        function show_user_list(user_list){
+
+          var i;
+          var td = document.getElementById("for_users");
+
+          for (i = 0; i<user_list.length; i++){
+            var btn = document.createElement("BUTTON");
+            btn.className = "btn btn-link";
+            btn.id = user_list[i].id//toString()
+            var p = document.createElement("p");
+            var text = document.createTextNode(user_list[i].name);
+            btn.appendChild(text); 
+
+            btn.onclick = function(){ 
+              var x = this.id;
+              console.log("this in function " + this.id)
+              start_chat_between_users(user_list, x);}
+            p.appendChild(btn);                  
+            //document.body.appendChild(btn); 
+            td.appendChild(p);
+
+          }
+
+        }
+
+        function start_chat_between_users(user_list, id){
+          for (i = 0; i<user_list.length; i++){
+            btn_to_clear = document.getElementById(user_list[i].id);
+            btn_to_clear.style.backgroundColor = "#FFFFFF";
+            btn_to_clear.innerHTML = btn_to_clear.innerHTML.replace(" +new", "");
+            if (user_list[i].id == id){
+              console.log("taking user!")
+              user = user_list[i]
+            }
+          }
+          btn = document.getElementById(id);
+          btn.style.backgroundColor = "#CCCCCC";
+          var dv = document.getElementById("to_somone");
+          dv.style.display = "None";
+          var dv = document.getElementById("to_particular");
+          dv.style.visibility = "visible"
+          user_to_chat = user;
+          var message = JSON.stringify({"type": "history", "user_id":user.id});
+          console.log("will send " + message)
+          ws.send(message);
+          
+
+
+
+        }
+
+        function show_users_online(){
+          var message = JSON.stringify({type:'get_online_user_list'});
+          ws.send(message);
+
+          var td = document.getElementById("for_users");
+          td.innerHTML = "";
+          var p = document.createElement("p");
+          var text = document.createTextNode("Users online:");
+          p.appendChild(text);
+          td.appendChild(p);
+
+        }
+
+        function show_users(){
+          var message = JSON.stringify({type:'get_user_list'});
+          ws.send(message);
+
+          var td = document.getElementById("for_users");
+
+          td.innerHTML = "";
+          var p = document.createElement("p");
+          var text = document.createTextNode("Users registered:");
+          p.appendChild(text);
+          td.appendChild(p);
+        }
+
+        function authorise_user(){
+          console.log("here");
+          var user_name = document.getElementById("name").value;
+          var user_password = document.getElementById("password").value;
+          var message = JSON.stringify({"type": "authorisation", "user_name":user_name, "user_password":user_password});
+          ws.send(message);
+        }
+
+         function register_user(){
+          var user_name = document.getElementById("name").value;
+          var user_password = document.getElementById("password").value;
+          
+          var message = JSON.stringify({"type": "registration", "user_name":user_name, "user_password":user_password});
+          ws.send(message);
+        }
+
+        function Log_out(){
+          location = document.URL;
+        }
+
+        </script>
+        <div align = "center" class = "autharisation" id = "autharisation">
+        <style>
+          .autharisation {
+         visibility: visible;}
+        </style>
+        <h3><p class="text-warning"> You are not authorised. Log in, please.</p></h3>
+        <p class="text-info"> Register, if new to us.</p>
+        <div >
+        
+
+          <div>
+          <table>
+          <tr>
+          <p> <td ><h5>  Login: </h5> </td><td aling = "left"><input type = "text" id = "name">  </inpute></td></p>
+          </tr><tr>
+          <p> <td aling = "right"> <h5> Password: </h5> </td><td aling = "left"><input type = "password" id = "password"> </inpute> </td></p>
+
+          </tr>
+          </table>
+          </div>
+          <p><button class="btn btn-default" onclick="authorise_user()"> Log in </button>
+          <button class="btn btn-default" onclick="register_user()"> Register </button></p>
+        </div>
+
+       </div>
+
+       <div class = "chat_itself" id = "chat_itself">
+        <style> 
+        .chat_itself {
+         visibility: hidden;}
+       </style>
+        
+       <div align="left" valign = "top">
+        <button class="btn btn-default" onclick="show_users_online()" align = "left">Who is online?</button>
+        
+        <button class="btn btn-default" onclick="show_users()" align = "left">People registered</button>
+
+        <h3 class="text-info"><div align="left" id = "welcome"></div></h3>
+        
+        </div>
+
+        <div align="right" valign = "top"> <button class="btn btn-default" onclick="Log_out()"> Log out </button></div>
+       
+       <table cellpadding="20" width="80%">
+
+       <tr>
+       <td valign = "top" id = "for_users" width="30%">
+        
+        <p></p>
+        
+
+        </td>
+
+        <td align="center"  valign="top" id = "for_chat" width = "60%">
+        <div id = "to_somone" style = "float:center; display:None;" >
+        <p>To: <input type = "text" id = "to"></input></p>
+        
+        <p>Text: <textarea style="resize:none" cols="180" rows = "5" id = "text"></textarea></p>
+       
+        
+        <p><button class="btn btn-default" onclick="send_message()">Send</button></p>
+        </div>
+
+        <div id="to_particular" class = "chat with user" style="visibility:hidden" aling = "canter">
+
+          <div id = "history"></div>
+          <hr>
+
+          <p><input type = "text" id = "text_to_particular" width = "400px" placeholder = "Enter your message here..."> </input>
+          <button id = "send_in_dialog" onclick="send_to_particular()">Send</button></p>
+          
+          
+        </div>
+
+        </td>
+
+
+        </tr></table>
+      </body>
+    </html>

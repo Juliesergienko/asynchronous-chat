@@ -1,0 +1,1 @@
+conn_string = "host='localhost' dbname='testchat' user='user1' password='password'"
